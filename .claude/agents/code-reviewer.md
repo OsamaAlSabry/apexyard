@@ -39,7 +39,7 @@ The verdict that drives the merge gate is the **local marker**, NOT the host's "
 
 - **Canonical happy path:** call `tracker_review_submit "$PR_HOST_REPO" {number} comment "$REVIEW_BODY_FILE"` and state the verdict (`APPROVED` / `CHANGES REQUESTED`) in the body itself. This always works — on gh it maps to `gh pr review --comment`; on glab to an MR note; on custom to the operator's `review_command`.
 - **Do NOT pass the `approve` verdict by default.** On gh it maps to `gh pr review --approve`, which in the common single-account / auto-mode setup GitHub refuses ("Cannot approve your own PR"), and an auto-mode write-classifier may additionally flag it. **That block is expected and is not a failure** — a host "Approved" state is optional and unavailable when reviewing your own account's PR. Do not retry it, do not escalate it, and do not report the review as incomplete because of it. The local marker (output #1) is what satisfies the gate.
-- The `request-changes` verdict is fine for a non-approving result you want reflected in the host's review state (on gh it does not hit the self-approval restriction; on glab it posts a note, since GitLab has no request-changes state).
+- On gh, GitHub refuses both `request-changes` and `approve` when the reviewing account authored the PR. For a same-account non-approving review, pass `comment` and state `CHANGES REQUESTED` in the body. A `CHANGES REQUESTED` verdict must not produce an approval marker. For another account's PR, `request-changes` can record a non-approving result in GitHub's review state. On glab, `request-changes` posts a note because GitLab has no request-changes state.
 
 **Do NOT** return without (a) writing the marker on APPROVED and (b) posting the `comment` review via `tracker_review_submit`. The review must be visible on the host; the marker must exist on disk.
 
@@ -652,8 +652,10 @@ fallow fix --dry-run
    base repo, NOT the fork; see marker section):
    tracker_review_submit "$PR_HOST_REPO" {number} comment "$REVIEW_BODY_FILE"   # verdict in the body
 
-   OR for a non-approving result you want reflected in the host's review state:
+   On gh, use this alternative only for another account's PR:
    tracker_review_submit "$PR_HOST_REPO" {number} request-changes "$REVIEW_BODY_FILE"
+   For a same-account review, pass comment with CHANGES REQUESTED in the body.
+   On glab, request-changes posts an MR note.
 
    Do NOT pass the `approve` verdict — on gh it maps to --approve, which GitHub blocks on
    single-account setups, and it is NOT required (the local marker is the gate signal).
