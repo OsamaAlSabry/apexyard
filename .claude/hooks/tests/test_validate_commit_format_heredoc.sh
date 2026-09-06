@@ -120,8 +120,14 @@ run_case "plain -m valid subject: pass silently" \
 run_case "plain -m bad subject: BLOCK" \
   'git commit -m "not a valid subject line"' 2 "BLOCKED: Commit subject"
 
-run_case "plain -m '\''quoted'\'' valid subject: pass" \
+run_case "plain -m 'quoted' valid subject: pass" \
   "git commit -m 'fix: a fix'" 0 ""
+
+# Git semantics: the first -m value is the subject; subsequent -m values are
+# body paragraphs. Regression test for #1146, where the greedy extractor used
+# the last -m value and rejected the valid subject.
+run_case "multiple -m: validate first value only" \
+  'git commit -m "chore: initialise private portfolio" -m "- first body bullet - second body bullet"' 0 ""
 
 # -F file path → no heredoc substitution involved, full validation runs.
 # The skip pattern is anchored on `-m \$(cat <<` literally, so -F is never

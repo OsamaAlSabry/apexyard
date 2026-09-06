@@ -63,12 +63,21 @@ if echo "$COMMAND" | grep -qE 'git[[:space:]]+commit\b[^|;&]*-m\b[^|;&]*\$\(cat[
   exit 0
 fi
 
-# Extract commit message (multi-line safe)
+# Extract commit message (multi-line safe).
+# Git treats the first -m value as the subject and later -m values as body
+# paragraphs. Do not use a greedy pattern here: it would select the last -m
+# value and validate the body as the subject (#1146).
 COMMAND_FLAT=$(echo "$COMMAND" | tr '\n' ' ')
 MSG=""
-MSG=$(echo "$COMMAND_FLAT" | sed -nE "s/.*-m[[:space:]]+'([^']*)'.*/\1/p" | head -1)
+FIRST_M=$(printf '%s\n' "$COMMAND_FLAT" | grep -oE -- "-m[[:space:]]+'[^']*'" | head -1)
+if [ -n "$FIRST_M" ]; then
+  MSG=$(printf '%s\n' "$FIRST_M" | sed -E "s/^-m[[:space:]]+'(.*)'$/\1/")
+fi
 if [ -z "$MSG" ]; then
-  MSG=$(echo "$COMMAND_FLAT" | sed -nE 's/.*-m[[:space:]]+"([^"]*)".*/\1/p' | head -1)
+  FIRST_M=$(printf '%s\n' "$COMMAND_FLAT" | grep -oE -- '-m[[:space:]]+"[^"]*"' | head -1)
+  if [ -n "$FIRST_M" ]; then
+    MSG=$(printf '%s\n' "$FIRST_M" | sed -E 's/^-m[[:space:]]+"(.*)"$/\1/')
+  fi
 fi
 if [ -z "$MSG" ]; then
   MSG_FILE=$(echo "$COMMAND_FLAT" | sed -nE 's/.*(-F|--file)[[:space:]]+([^[:space:]]+).*/\2/p' | head -1)
